@@ -1,0 +1,14 @@
+# Build output and IDE files
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+
+# Local tooling config
+.claude/
+
+# Personal data: your own floor plan and default weather spot (see README › "Your own home")
+app/src/personal/

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Falcon Launcher</string>
+    <string name="accessibility_label">Falcon Launcher Home button</string>
+    <string name="accessibility_description">Makes the Home button on your remote open Falcon Launcher. It only listens for the Home button and checks which app is in front. It never reads screen content or anything you type.</string>
+</resources>

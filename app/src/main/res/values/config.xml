@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Default weather location until one is typed in on the weather card. Either a city name for
+      Open-Meteo's search, or "Label@latitude,longitude" for an exact spot (e.g. a neighborhood).
+      Override it privately in app/src/personal/res/values/config.xml.
+    -->
+    <string name="default_weather_city" translatable="false">Istanbul</string>
+</resources>
