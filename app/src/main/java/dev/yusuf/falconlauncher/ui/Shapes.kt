@@ -65,13 +65,13 @@ class ContinuousRoundedShape(private val radius: Dp) : Shape {
  * several milliseconds a frame. At these small radii the squircle difference isn't visible anyway.
  */
 object Shapes {
-    val Tile = RoundedCornerShape(12.dp)
-    val Dock = RoundedCornerShape(22.dp)
-    val Widget = RoundedCornerShape(16.dp)
-    val Dialog = RoundedCornerShape(20.dp)
-    val Menu = RoundedCornerShape(16.dp)
-    val Button = RoundedCornerShape(12.dp)
-    val Field = RoundedCornerShape(10.dp)
-    val MenuItem = RoundedCornerShape(10.dp)
-    val Art = RoundedCornerShape(8.dp)
+    val Tile = RoundedCornerShape(9.dp)
+    val Dock = RoundedCornerShape(17.dp)
+    val Widget = RoundedCornerShape(12.dp)
+    val Dialog = RoundedCornerShape(15.dp)
+    val Menu = RoundedCornerShape(12.dp)
+    val Button = RoundedCornerShape(9.dp)
+    val Field = RoundedCornerShape(8.dp)
+    val MenuItem = RoundedCornerShape(8.dp)
+    val Art = RoundedCornerShape(6.dp)
 }

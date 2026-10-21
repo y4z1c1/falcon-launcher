@@ -185,7 +185,7 @@ private fun AppBadge(packageName: String, modifier: Modifier = Modifier) {
     val icon = remember(packageName) {
         runCatching { context.packageManager.getApplicationIcon(packageName).toBitmap(96, 96).asImageBitmap() }.getOrNull()
     } ?: return
-    Image(icon, contentDescription = null, modifier = modifier.size(30.dp).clip(RoundedCornerShape(8.dp)))
+    Image(icon, contentDescription = null, modifier = modifier.size(30.dp).clip(RoundedCornerShape(6.dp)))
 }
 
 /** A brighter version of an artwork color, so the progress bar stays visible on the glass. */

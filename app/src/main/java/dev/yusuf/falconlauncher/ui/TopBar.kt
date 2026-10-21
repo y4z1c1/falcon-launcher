@@ -175,10 +175,10 @@ private fun Clock() {
             Text(
                 DateFormat.format(DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), date).toString()
                     .replace(",", "").uppercase(locale),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 3.sp,
-                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Normal,
+                letterSpacing = 2.5.sp,
+                color = Color.White.copy(alpha = 0.55f),
             )
         }
     }
