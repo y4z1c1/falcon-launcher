@@ -89,6 +89,9 @@ fun HomeScreen(
     var renameBulb by remember { mutableStateOf<WizBulb?>(null) }
     var showCityDialog by remember { mutableStateOf(false) }
     var showShortcuts by remember { mutableStateOf(false) }
+    var showCallMute by remember { mutableStateOf(false) }
+    val callMuteEnabled by vm.callMuteEnabled.collectAsStateWithLifecycle()
+    val ancsState by vm.ancsState.collectAsStateWithLifecycle()
     val lightShortcuts by vm.lightShortcuts.collectAsStateWithLifecycle()
 
     val inputsIntent = remember { SystemActions.inputs(context) }
@@ -156,6 +159,7 @@ fun HomeScreen(
                 showHidden = state.showHidden,
                 onToggleHidden = vm::toggleShowHidden,
                 onLightShortcuts = { showShortcuts = true },
+                onCallMute = { showCallMute = true },
                 onScreensaver = {
                     context.startActivity(android.content.Intent(context, dev.yusuf.falconlauncher.dream.ScreensaverActivity::class.java))
                 },
@@ -261,6 +265,19 @@ fun HomeScreen(
             initial = bulb.displayName(bulbNames),
             onSave = { vm.renameBulb(bulb, it) },
             onDismiss = { renameBulb = null },
+        )
+    }
+
+    if (showCallMute) {
+        CallMutePanel(
+            enabled = callMuteEnabled,
+            ancsState = ancsState,
+            onToggle = vm::setCallMuteEnabled,
+            onTest = { vm.testCallMute() },
+            onDismiss = {
+                showCallMute = false
+                restoreFocusTo = dockFocus
+            },
         )
     }
 

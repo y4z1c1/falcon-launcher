@@ -98,6 +98,17 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun rescanLights() = viewModelScope.launch { lights.discover() }
     fun setLightsLive(on: Boolean) = lights.setLive(on)
 
+    // Call muting
+    val callMuteEnabled = prefs.callMuteEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val ancsState = falconApp.ancs.state
+    fun setCallMuteEnabled(on: Boolean) = viewModelScope.launch { prefs.setCallMuteEnabled(on) }
+    /** Mutes for 3 seconds like a call would, then restores. */
+    fun testCallMute() = viewModelScope.launch {
+        falconApp.callMute.start()
+        kotlinx.coroutines.delay(3_000)
+        falconApp.callMute.end("test")
+    }
+
     val lightShortcuts = combine(prefs.lightShortcuts, lights.bulbs) { saved, bulbs -> dev.yusuf.falconlauncher.data.LightShortcut.resolve(saved, bulbs) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     fun setLightShortcut(key: Int, shortcut: dev.yusuf.falconlauncher.data.LightShortcut) =

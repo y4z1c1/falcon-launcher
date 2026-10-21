@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -79,6 +80,7 @@ fun TopBar(
     onStockHome: (() -> Unit)?,
     onScreensaver: () -> Unit,
     onLightShortcuts: () -> Unit,
+    onCallMute: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val networkLabel = rememberNetworkLabel(wifiPermissionGranted)
@@ -93,6 +95,7 @@ fun TopBar(
         add(MenuItem(if (showHidden) "Hide hidden apps" else "Show hidden apps", rememberVectorPainter(Icons.Default.Menu), null, onToggleHidden))
         onStockHome?.let { add(MenuItem("Google TV home", rememberVectorPainter(Icons.Default.Home), null, it)) }
         add(MenuItem("Light shortcuts", painterResource(R.drawable.ic_bulb), "0–9", onLightShortcuts))
+        add(MenuItem("Call muting", rememberVectorPainter(Icons.Default.Call), null, onCallMute))
         add(MenuItem("Screensaver", rememberVectorPainter(Icons.Default.PlayArrow), null, onScreensaver))
     }
 

@@ -41,6 +41,10 @@ class HomeWatcherService : AccessibilityService() {
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             Log.d(TAG, "key ${KeyEvent.keyCodeToString(event.keyCode)}")
         }
+        // Pressing Mute during call muting means the user takes over the sound; let the key do its job.
+        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_MUTE && event.action == KeyEvent.ACTION_DOWN) {
+            (application as FalconApp).callMute.forget()
+        }
         // Color buttons switch picture modes instead of doing whatever the current app does with them.
         if (picturePresets.handles(event.keyCode)) {
             picturePresets.onKey(event)

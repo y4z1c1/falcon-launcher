@@ -31,6 +31,17 @@ class FalconApp : Application() {
     val lights by lazy { WizLights(this) }
     val homePlan by lazy { dev.yusuf.falconlauncher.data.HomePlan.load(this) }
 
+    val callMute by lazy { dev.yusuf.falconlauncher.tv.CallMute(this) }
+    private val callMuteEnabledState by lazy { prefs.callMuteEnabled.stateIn(appScope, SharingStarted.Eagerly, true) }
+    val callMuteEnabled: Boolean get() = callMuteEnabledState.value
+    private val incomingCalls by lazy {
+        dev.yusuf.falconlauncher.tv.IncomingCalls(callMute, { callMuteEnabled }) { text ->
+            android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    /** Hears the iPhone ring over Bluetooth (ANCS) once paired. */
+    val ancs by lazy { dev.yusuf.falconlauncher.tv.AncsClient(this) { incomingCalls.onEvent(it) } }
+
     // Kept warm so a remote number key can act instantly, from any app.
     private val savedShortcuts by lazy { prefs.lightShortcuts.stateIn(appScope, SharingStarted.Eagerly, emptyMap()) }
     private val bulbRooms by lazy { prefs.bulbRooms.stateIn(appScope, SharingStarted.Eagerly, emptyMap()) }
@@ -83,6 +94,9 @@ class FalconApp : Application() {
         }
         lights.start()
         savedShortcuts; bulbRooms; bulbNames
+        callMuteEnabledState
+        // Bluetooth ring detection runs while call muting is on (and once permissions are granted).
+        appScope.launch { prefs.callMuteEnabled.collect { on -> if (on) ancs.start() else ancs.stop() } }
     }
 
     private companion object {

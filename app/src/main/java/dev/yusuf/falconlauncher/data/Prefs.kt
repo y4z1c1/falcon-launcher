@@ -49,6 +49,11 @@ class Prefs(context: Context) {
         it[LIGHT_SHORTCUTS] = encodeMap(decodeMap(it[LIGHT_SHORTCUTS]) + (key.toString() to action))
     }
 
+    /** Call muting (iPhone over Bluetooth): on by default. */
+    val callMuteEnabled: Flow<Boolean> = store.data.map { it[CALL_MUTE] ?: true }.distinctUntilChanged()
+    suspend fun setCallMuteEnabled(on: Boolean) = store.edit { it[CALL_MUTE] = on }
+
+
     suspend fun setBulbRoom(mac: String, room: String) = store.edit { it[BULB_ROOMS] = encodeMap(decodeMap(it[BULB_ROOMS]) + (mac to room)) }
     suspend fun setBulbName(mac: String, name: String) = store.edit {
         val names = decodeMap(it[BULB_NAMES])
@@ -113,5 +118,6 @@ class Prefs(context: Context) {
         val BULB_NAMES = stringSetPreferencesKey("bulb_names")
         val BULB_POSITIONS = stringSetPreferencesKey("bulb_positions")
         val LIGHT_SHORTCUTS = stringSetPreferencesKey("light_shortcuts")
+        val CALL_MUTE = booleanPreferencesKey("call_mute")
     }
 }

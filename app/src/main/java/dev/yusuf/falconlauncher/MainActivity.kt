@@ -28,6 +28,14 @@ class MainActivity : ComponentActivity() {
     private var serviceStatus by mutableStateOf(HomeWatcherService.Status.ON)
     private var wifiPermissionGranted by mutableStateOf(false)
 
+    /** Bluetooth access for hearing the iPhone ring (Settings › Call muting). */
+    private val bluetoothPermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            (application as FalconApp).ancs.start()
+        }
+
+    fun requestBluetoothPermissions() = bluetoothPermissions.launch(dev.yusuf.falconlauncher.tv.AncsClient.PERMISSIONS)
+
     private val locationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             wifiPermissionGranted = granted

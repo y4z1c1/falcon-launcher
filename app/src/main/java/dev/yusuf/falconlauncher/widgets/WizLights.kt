@@ -312,11 +312,7 @@ class WizLights(private val context: Context) {
         _bulbs.value = synchronized(lock) { states.values.sortedBy { it.ip.substringAfterLast('.').toIntOrNull() ?: 0 } }
     }
 
-    private fun localIp(): String? {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        return cm.getLinkProperties(cm.activeNetwork)?.linkAddresses
-            ?.firstOrNull { it.address is Inet4Address }?.address?.hostAddress
-    }
+    private fun localIp(): String? = dev.yusuf.falconlauncher.util.localIpv4(context)
 
     /** The subnet broadcast address (more reliable on many routers) plus the global one. */
     private fun broadcastAddresses(): List<InetAddress> {

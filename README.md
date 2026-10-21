@@ -34,6 +34,12 @@ WiZ smart lights on an isometric 3D floor plan of your home, and remote-control 
 - **Number keys** switch lamps, rooms or all lights from any app (configurable in Settings › Light shortcuts).
 - **Color keys** are picture-mode presets (TCL): hold for 2 s to save the current mode, press to recall.
 
+**Call muting (iPhone)**
+- The TV mutes the moment your iPhone rings and stays muted through any call, incoming or outgoing. The
+  sound comes back when you hang up or miss the call (and stays off if you'd muted the TV yourself).
+- It works over Bluetooth LE, the way smartwatches get iPhone notifications (Apple's ANCS). Only call
+  events are read, never notification content. No app or Shortcut is needed on the phone.
+
 ![Light shortcuts](docs/screenshots/light-shortcuts.png)
 
 **Screensaver**
@@ -103,6 +109,11 @@ adb shell settings put secure screensaver_components dev.yusuf.falconlauncher/.d
 
 Preview it any time from Settings › Screensaver.
 
+**5. Call muting (optional).** Open Settings › Call muting on the TV and choose **Allow Bluetooth**. Then on
+the iPhone, open Settings › Bluetooth, tap the TV under *Other Devices*, pair, and allow **Share System
+Notifications**. The panel shows *Connected* once it's working; after that the TV reconnects by itself
+whenever the iPhone is in range, including after standby or a reboot.
+
 ## Your own home
 
 The repo ships a **sample apartment** and Istanbul as the default weather city. To use your own:
@@ -142,9 +153,10 @@ Room names from PlanStudio are matched in Turkish or English (`salon`/`living ro
 | Home key | Accessibility service intercepts `KEYCODE_HOME`, plus a fallback redirect if Google TV's home activity appears. |
 | TV key | TCL remotes send vendor key code **4001** for TV; `BUTTON_3` is YouTube on this remote. |
 | Picture modes | TCL's `com.tcl.tv.display` picture-quality SDK, called by reflection (declared as an optional library). |
+| Call muting | The TV advertises as an ANCS accessory; the iPhone connects, and the TV subscribes to its Notification Source. Category 1 (incoming call) mutes; category 12 (active call) holds the mute until it's removed. A 30 s watchdog keeps the link up. |
 | Weather | [Open-Meteo](https://open-meteo.com), free, no key, refreshed every 30 min with quick retries. |
 
-Debugging: `adb logcat -s HomeWatcher WizLights` logs key presses, window changes and lamp traffic.
+Debugging: `adb logcat -s HomeWatcher WizLights Ancs CallMute` logs key presses, window changes and lamp traffic.
 
 ## Credits
 
