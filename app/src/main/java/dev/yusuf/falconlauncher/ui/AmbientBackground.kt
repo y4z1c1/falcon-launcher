@@ -159,8 +159,9 @@ private class AmbientGlRenderer : GLSurfaceView.Renderer {
 
             float glow(vec2 px, vec2 center, float radius) {
                 float t = clamp(distance(px, center) / radius, 0.0, 1.0);
-                // Matches the old gradient stops: 1 at the center, ~0.35 halfway, 0 at the edge.
-                return (1.0 - t) * (1.0 - t) * (1.0 + 0.4 * (1.0 - t));
+                // A soft bell: flat at the center (no hot spot), ~0.42 halfway, feathering to 0 at the edge.
+                float g = 1.0 - t * t;
+                return g * g * g;
             }
 
             vec3 over(vec3 base, vec3 color, float alpha) { return mix(base, color, clamp(alpha, 0.0, 1.0)); }
@@ -173,10 +174,10 @@ private class AmbientGlRenderer : GLSurfaceView.Renderer {
                 float breathe = 0.82 + 0.18 * sin(2.0 * p);
 
                 vec3 col = vec3(0.0);
-                col = over(col, uC0, 0.85 * breathe * glow(px, vec2(w * (0.32 + 0.09 * sin(p)), h * (0.42 + 0.10 * cos(2.0 * p))), w * 0.78));
-                col = over(col, uC1, 0.5 * glow(px, vec2(w * (0.74 + 0.10 * cos(p + 1.0)), h * (0.28 + 0.12 * sin(2.0 * p))), w * 0.6));
-                col = over(col, uC2, 0.32 * glow(px, vec2(w * (0.14 + 0.08 * sin(3.0 * p)), h * (0.14 + 0.08 * cos(p))), w * 0.48));
-                col = over(col, uC1 * 0.6, 0.2 * (0.5 + 0.5 * sin(p + 2.0)) * glow(px, vec2(w * (0.5 + 0.35 * cos(p)), h * (0.7 + 0.1 * sin(p))), w * 0.55));
+                col = over(col, uC0, 0.8 * breathe * glow(px, vec2(w * (0.34 + 0.06 * sin(p)), h * (0.44 + 0.06 * cos(2.0 * p))), w * 0.95));
+                col = over(col, uC1, 0.5 * glow(px, vec2(w * (0.74 + 0.10 * cos(p + 1.0)), h * (0.28 + 0.12 * sin(2.0 * p))), w * 0.72));
+                col = over(col, uC2, 0.32 * glow(px, vec2(w * (0.14 + 0.08 * sin(3.0 * p)), h * (0.14 + 0.08 * cos(p))), w * 0.58));
+                col = over(col, uC1 * 0.6, 0.2 * (0.5 + 0.5 * sin(p + 2.0)) * glow(px, vec2(w * (0.5 + 0.35 * cos(p)), h * (0.7 + 0.1 * sin(p))), w * 0.66));
 
                 // Darken gently toward the bottom so the dock reads clearly, but let the color reach the edge.
                 col *= 1.0 - 0.45 * smoothstep(0.45, 1.0, px.y / h);
