@@ -30,6 +30,9 @@ WiZ smart lights on an isometric 3D floor plan of your home, and remote-control 
 
 **Remote control**
 - **Home** opens Falcon (Google TV's own home never flashes up).
+- **Hold Home** for the app switcher: recent apps as cards over what's on screen. OK switches, **Up** closes an
+  app for good (handy when one hangs). Closing goes through the TV's own network debugging; the first time, the
+  TV asks to allow Falcon: choose *Always allow*.
 - **TV** switches to HDMI 1 (e.g. a cable receiver) instead of the tuner app.
 - **Number keys** switch lamps, rooms or all lights from any app (configurable in Settings › Light shortcuts).
 - **Color keys** are picture-mode presets (TCL): hold for 2 s to save the current mode, press to recall.

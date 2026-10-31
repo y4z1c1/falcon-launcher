@@ -6,6 +6,7 @@ import dev.yusuf.falconlauncher.data.Prefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -30,6 +31,16 @@ class FalconApp : Application() {
     val weather = WeatherSource()
     val lights by lazy { WizLights(this) }
     val homePlan by lazy { dev.yusuf.falconlauncher.data.HomePlan.load(this) }
+    val recents by lazy { dev.yusuf.falconlauncher.data.RecentApps(this) }
+    val localAdb by lazy { dev.yusuf.falconlauncher.tv.LocalAdb(this) }
+
+    /**
+     * Stops an app for good (the app switcher's close) and drops it from the recents. Runs to the end
+     * even if the switcher closes meanwhile, so the list never keeps an app that was stopped.
+     */
+    suspend fun closeApp(packageName: String): Boolean = appScope.async {
+        localAdb.forceStop(packageName).also { if (it) recents.remove(packageName) }
+    }.await()
 
     val callMute by lazy { dev.yusuf.falconlauncher.tv.CallMute(this) }
     private val callMuteEnabledState by lazy { prefs.callMuteEnabled.stateIn(appScope, SharingStarted.Eagerly, true) }

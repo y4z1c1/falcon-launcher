@@ -68,6 +68,17 @@
             </intent-filter>
         </activity>
 
+        <!-- The app switcher (hold Home). Its own task, translucent, so the app behind stays on screen. -->
+        <activity
+            android:name=".SwitcherActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:screenOrientation="landscape"
+            android:taskAffinity=""
+            android:theme="@style/Theme.FalconLauncher.Switcher" />
+
         <activity
             android:name=".dream.ScreensaverActivity"
             android:exported="false"

@@ -57,4 +57,5 @@ dependencies {
     implementation(libs.androidx.tv.material)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.palette)
+    implementation(libs.dadb)
 }
