@@ -42,7 +42,7 @@ class FalconApp : Application() {
         localAdb.forceStop(packageName).also { if (it) recents.remove(packageName) }
     }.await()
 
-    val callMute by lazy { dev.yusuf.falconlauncher.tv.CallMute(this) }
+    val callMute by lazy { dev.yusuf.falconlauncher.tv.CallMute(this, nowPlaying) }
     private val callMuteEnabledState by lazy { prefs.callMuteEnabled.stateIn(appScope, SharingStarted.Eagerly, true) }
     val callMuteEnabled: Boolean get() = callMuteEnabledState.value
     private val incomingCalls by lazy {

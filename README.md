@@ -38,8 +38,9 @@ WiZ smart lights on an isometric 3D floor plan of your home, and remote-control 
 - **Color keys** are picture-mode presets (TCL): hold for 2 s to save the current mode, press to recall.
 
 **Call muting (iPhone)**
-- The TV mutes the moment your iPhone rings and stays muted through any call, incoming or outgoing. The
-  sound comes back when you hang up or miss the call (and stays off if you'd muted the TV yourself).
+- The moment your iPhone rings, the TV pauses what's playing and mutes, and stays that way through any call,
+  incoming or outgoing. When you hang up or miss the call, the sound comes back and playback continues
+  (anything you'd paused or muted yourself stays that way).
 - It works over Bluetooth LE, the way smartwatches get iPhone notifications (Apple's ANCS). Only call
   events are read, never notification content. No app or Shortcut is needed on the phone.
 
@@ -156,7 +157,7 @@ Room names from PlanStudio are matched in Turkish or English (`salon`/`living ro
 | Home key | Accessibility service intercepts `KEYCODE_HOME`, plus a fallback redirect if Google TV's home activity appears. |
 | TV key | TCL remotes send vendor key code **4001** for TV; `BUTTON_3` is YouTube on this remote. |
 | Picture modes | TCL's `com.tcl.tv.display` picture-quality SDK, called by reflection (declared as an optional library). |
-| Call muting | The TV advertises as an ANCS accessory; the iPhone connects, and the TV subscribes to its Notification Source. Category 1 (incoming call) mutes; category 12 (active call) holds the mute until it's removed. A 30 s watchdog keeps the link up. |
+| Call muting | The TV advertises as an ANCS accessory; the iPhone connects, and the TV subscribes to its Notification Source. Category 1 (incoming call) pauses every playing media session and mutes; category 12 (active call) holds that until it's removed, then the sound and the paused sessions come back. A 30 s watchdog keeps the link up. |
 | Weather | [Open-Meteo](https://open-meteo.com), free, no key, refreshed every 30 min with quick retries. |
 
 Debugging: `adb logcat -s HomeWatcher WizLights Ancs CallMute` logs key presses, window changes and lamp traffic.

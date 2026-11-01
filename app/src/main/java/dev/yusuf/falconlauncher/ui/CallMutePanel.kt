@@ -23,8 +23,8 @@ import dev.yusuf.falconlauncher.MainActivity
 import dev.yusuf.falconlauncher.tv.AncsClient
 
 /**
- * Settings › Call muting: on/off, a test, and pairing the iPhone over Bluetooth. Once paired, the TV mutes
- * while the iPhone rings and during any call, incoming or outgoing.
+ * Settings › Call muting: on/off, a test, and pairing the iPhone over Bluetooth. Once paired, the TV pauses
+ * and mutes while the iPhone rings and during any call, incoming or outgoing.
  */
 @Composable
 fun CallMutePanel(
@@ -43,7 +43,7 @@ fun CallMutePanel(
         ) {
             Text("Call muting", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                "Mutes the TV while you're on a call with your iPhone, and restores the sound afterwards.",
+                "Pauses and mutes the TV while you're on a call with your iPhone, then plays again afterwards.",
                 fontSize = 13.sp, color = Color.White.copy(alpha = 0.65f),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -54,7 +54,7 @@ fun CallMutePanel(
             Section("IPHONE · BLUETOOTH")
             Text(
                 when (ancsState) {
-                    AncsClient.State.ACTIVE -> "Connected · the TV mutes while your iPhone rings and during calls."
+                    AncsClient.State.ACTIVE -> "Connected · the TV pauses and mutes while your iPhone rings and during calls."
                     AncsClient.State.CONNECTING -> "Connecting to your iPhone…"
                     AncsClient.State.WAITING -> "Waiting for your iPhone. On the iPhone, open Settings › Bluetooth, tap this TV " +
                         "under Other Devices, pair, and allow \"Share System Notifications\"."

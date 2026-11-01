@@ -5,8 +5,8 @@ import android.os.Looper
 
 /**
  * Turns ANCS notification events into call muting:
- *  - an "Incoming Call" notification appears (the phone starts ringing) → mute;
- *  - an "Active Call" notification appears (a call is answered or placed) → stay muted while it's there;
+ *  - an "Incoming Call" notification appears (the phone starts ringing) → pause and mute;
+ *  - an "Active Call" notification appears (a call is answered or placed) → stay so while it's there;
  *  - the active call's notification disappears (hung up) → restore;
  *  - ringing stops with no active call (missed or declined) → restore.
  *
@@ -18,7 +18,7 @@ class IncomingCalls(private val callMute: CallMute, private val enabled: () -> B
     private var inCall = false
 
     private val ringingStopped = Runnable {
-        if (!inCall && callMute.end("missed call")) toast("TV sound restored")
+        if (!inCall) restore("missed call")
     }
 
     fun onEvent(e: AncsClient.AncsEvent) {
@@ -29,7 +29,7 @@ class IncomingCalls(private val callMute: CallMute, private val enabled: () -> B
                 added -> {
                     ringing = true
                     main.removeCallbacks(ringingStopped)
-                    mute("Incoming call · TV muted")
+                    mute("Incoming call")
                 }
                 removed && ringing -> {
                     ringing = false
@@ -41,21 +41,26 @@ class IncomingCalls(private val callMute: CallMute, private val enabled: () -> B
                 added -> {
                     inCall = true
                     main.removeCallbacks(ringingStopped)
-                    mute("On a call · TV muted")
+                    mute("On a call")
                     callMute.extend(CallMute.SAFETY_MS)
                 }
                 removed && inCall -> {
                     inCall = false
-                    if (!ringing && callMute.end("call ended")) toast("TV sound restored")
+                    if (!ringing) restore("call ended")
                 }
             }
         }
     }
 
-    private fun mute(message: String) {
+    private fun mute(what: String) {
         if (!enabled() || callMute.active) return
         callMute.start()
-        toast(message)
+        toast(if (callMute.pausedMedia) "$what · Paused and muted" else "$what · TV muted")
+    }
+
+    private fun restore(reason: String) {
+        val resumes = callMute.pausedMedia
+        if (callMute.end(reason)) toast(if (resumes) "Playing again" else "TV sound restored")
     }
 
     private companion object {

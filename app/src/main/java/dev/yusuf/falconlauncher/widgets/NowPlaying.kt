@@ -89,6 +89,20 @@ class NowPlayingSource(private val context: Context) {
         if (_state.value?.isPlaying == true) controls.pause() else controls.play()
     }
 
+    /** Pauses every app that's playing (for a phone call). Returns their package names, for [resume]. */
+    fun pauseAll(): Set<String> {
+        val playing = currentSessions().filter { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+        playing.forEach { it.transportControls.pause() }
+        return playing.map { it.packageName }.toSet()
+    }
+
+    /** Plays again what [pauseAll] paused, unless it has been played, stopped or closed since. */
+    fun resume(packages: Set<String>) {
+        currentSessions()
+            .filter { it.packageName in packages && it.playbackState?.state == PlaybackState.STATE_PAUSED }
+            .forEach { it.transportControls.play() }
+    }
+
     fun next() = controller?.transportControls?.skipToNext()
     fun previous() = controller?.transportControls?.skipToPrevious()
 
