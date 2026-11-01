@@ -108,6 +108,7 @@ class FalconApp : Application() {
         callMuteEnabledState
         // Bluetooth ring detection runs while call muting is on (and once permissions are granted).
         appScope.launch { prefs.callMuteEnabled.collect { on -> if (on) ancs.start() else ancs.stop() } }
+        dev.yusuf.falconlauncher.tv.MusicKeepAwake(this, localAdb, nowPlaying.state).start(appScope)
     }
 
     private companion object {

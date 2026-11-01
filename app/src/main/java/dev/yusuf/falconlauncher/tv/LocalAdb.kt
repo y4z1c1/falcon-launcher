@@ -31,6 +31,9 @@ class LocalAdb(context: Context) {
         return shell("am force-stop $packageName") != null
     }
 
+    /** Sends [INERT_KEY], which counts as the user touching the remote (see [MusicKeepAwake]). */
+    suspend fun pokeUserActivity(): Boolean = shell("input keyevent $INERT_KEY") != null
+
     /** The command's output, or null if adb isn't reachable, the key wasn't allowed, or the command failed. */
     private suspend fun shell(command: String): String? = withContext(Dispatchers.IO) {
         lock.withLock {
@@ -55,14 +58,17 @@ class LocalAdb(context: Context) {
         return AdbKeyPair.read(private, public)
     }
 
-    private companion object {
-        const val TAG = "LocalAdb"
-        const val HOST = "127.0.0.1"
-        const val PORT = 5555
-        const val CONNECT_TIMEOUT_MS = 2_000
+    companion object {
+        /** A key no app or screen reacts to; the screensaver ignores it too. */
+        const val INERT_KEY = android.view.KeyEvent.KEYCODE_F12
+
+        private const val TAG = "LocalAdb"
+        private const val HOST = "127.0.0.1"
+        private const val PORT = 5555
+        private const val CONNECT_TIMEOUT_MS = 2_000
         /** Also how long the TV's "Allow debugging?" prompt has to be answered the first time. */
-        const val AUTH_TIMEOUT_MS = 30_000
-        const val KEY_AUTHORIZED = "authorized"
-        val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")
+        private const val AUTH_TIMEOUT_MS = 30_000
+        private const val KEY_AUTHORIZED = "authorized"
+        private val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")
     }
 }

@@ -68,6 +68,8 @@ class FalconDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // The launcher's own keep-awake key while music plays; not a person at the remote.
+        if (event.keyCode == dev.yusuf.falconlauncher.tv.LocalAdb.INERT_KEY) return true
         if (event.action == KeyEvent.ACTION_UP) {
             if (event.keyCode == KeyEvent.KEYCODE_BACK) goHome() else finish()
         }

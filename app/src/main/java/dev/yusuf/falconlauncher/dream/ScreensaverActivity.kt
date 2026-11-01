@@ -19,6 +19,7 @@ class ScreensaverActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == dev.yusuf.falconlauncher.tv.LocalAdb.INERT_KEY) return true
         if (event.action == KeyEvent.ACTION_UP) finish()
         return true
     }
