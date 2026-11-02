@@ -69,12 +69,21 @@ class Prefs(context: Context) {
         store.edit { it[WEATHER_CITY] = city.trim().ifEmpty { defaultCity } }
     }
 
-    /** One-time dock setup the user asked for; applied once, after which the dock is theirs to change. */
+    /**
+     * One-time dock setup the user asked for, and later additions to it (appended to whatever the dock
+     * holds by then). Each is applied once, after which the dock is theirs to change.
+     */
     suspend fun applyDockPresetOnce() {
         store.edit { prefs ->
-            if (prefs[DOCK_PRESET_APPLIED] == true) return@edit
-            prefs[FAVORITES] = DOCK_PRESET.joinToString(",")
-            prefs[DOCK_PRESET_APPLIED] = true
+            if (prefs[DOCK_PRESET_APPLIED] != true) {
+                prefs[FAVORITES] = DOCK_PRESET.joinToString(",")
+                prefs[DOCK_PRESET_APPLIED] = true
+            }
+            if (prefs[DOCK_ADDITIONS_APPLIED] != true) {
+                val current = prefs[FAVORITES]?.split(',')?.filter { it.isNotBlank() }.orEmpty()
+                prefs[FAVORITES] = (current + DOCK_ADDITIONS.filter { it !in current }).joinToString(",")
+                prefs[DOCK_ADDITIONS_APPLIED] = true
+            }
         }
     }
 
@@ -113,6 +122,11 @@ class Prefs(context: Context) {
             "com.google.android.youtube.tv",
             "com.beonetv.tod",
             "com.amazon.amazonvideo.livingroom",
+        )
+        val DOCK_ADDITIONS_APPLIED = booleanPreferencesKey("dock_additions_v1")
+        val DOCK_ADDITIONS = listOf(
+            "dev.yusuf.falcontok", // TikTok (this repo's tiktok module)
+            "com.wbd.stream", // HBO Max
         )
         val BULB_ROOMS = stringSetPreferencesKey("bulb_rooms")
         val BULB_NAMES = stringSetPreferencesKey("bulb_names")

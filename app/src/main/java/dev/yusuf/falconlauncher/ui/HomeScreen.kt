@@ -30,6 +30,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +50,8 @@ private val SidePadding = 56.dp
 private val DockTileWidth = 172.dp
 private val DockSpacing = 20.dp
 private val DockPadding = 14.dp
+/** Tiles the dock shows at once; the rest scroll into view as focus moves along it. */
+private const val DockVisibleTiles = 5
 private val WidgetGap = 16.dp
 private val SideCardWidth = 312.dp
 
@@ -130,9 +133,9 @@ fun HomeScreen(
         }
     }
 
-    // Everything spans exactly the dock's width (its apps plus the Apps tile), so the clock, the cards
-    // and the dock share the same left and right edges.
-    val tiles = state.dock.size + 1
+    // Everything spans exactly the dock's width (its apps plus the Apps tile, up to DockVisibleTiles of
+    // them; more scroll sideways), so the clock, the cards and the dock share the same left and right edges.
+    val tiles = minOf(state.dock.size + 1, DockVisibleTiles)
     val dockWidth = DockTileWidth * tiles + DockSpacing * (tiles - 1) + DockPadding * 2
 
     // While the lights page is open it's the only thing on screen (the home screen isn't drawn behind it).
@@ -205,6 +208,7 @@ fun HomeScreen(
             }
             Dock(
                 apps = state.dock,
+                modifier = Modifier.width(dockWidth),
                 firstFocus = dockFocus,
                 appsTileFocus = appsTileFocus,
                 upLeft = nowPlayingFocus,
@@ -347,12 +351,13 @@ private fun Dock(
     onMenu: (AppEntry, FocusRequester) -> Unit,
     onAllApps: () -> Unit,
     menu: @Composable (AppEntry, String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val shape = Shapes.Dock
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(DockSpacing),
         contentPadding = PaddingValues(DockPadding),
-        modifier = Modifier.glass(shape),
+        modifier = modifier.glass(shape).clip(shape),
     ) {
         itemsIndexed(apps, key = { _, app -> app.packageName }) { index, app ->
             val requester = remember { FocusRequester() }
@@ -375,7 +380,11 @@ private fun Dock(
                 modifier = Modifier
                     .width(DockTileWidth)
                     .focusRequester(appsTileFocus)
-                    .focusProperties { up = upRight },
+                    // The dock's end: Right stays here instead of jumping up to Settings.
+                    .focusProperties {
+                        up = upRight
+                        right = FocusRequester.Cancel
+                    },
             )
         }
     }
