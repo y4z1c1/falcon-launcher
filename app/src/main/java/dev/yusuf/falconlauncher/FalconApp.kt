@@ -37,10 +37,19 @@ class FalconApp : Application() {
     /**
      * Stops an app for good (the app switcher's close) and drops it from the recents. Runs to the end
      * even if the switcher closes meanwhile, so the list never keeps an app that was stopped.
+     *
+     * System apps are only dropped from the recents, never stopped: other system services hold on to them.
+     * Stopping TV Settings, for one, takes TCL's AirPlay service down with it, and that comes back
+     * without announcing itself on the network, so Macs and iPhones can't connect until the TV restarts.
      */
     suspend fun closeApp(packageName: String): Boolean = appScope.async {
-        localAdb.forceStop(packageName).also { if (it) recents.remove(packageName) }
+        if (isSystemApp(packageName)) true.also { recents.remove(packageName) }
+        else localAdb.forceStop(packageName).also { if (it) recents.remove(packageName) }
     }.await()
+
+    private fun isSystemApp(packageName: String): Boolean = runCatching {
+        packageManager.getApplicationInfo(packageName, 0).flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0
+    }.getOrDefault(false)
 
     val callMute by lazy { dev.yusuf.falconlauncher.tv.CallMute(this, nowPlaying) }
     private val callMuteEnabledState by lazy { prefs.callMuteEnabled.stateIn(appScope, SharingStarted.Eagerly, true) }
