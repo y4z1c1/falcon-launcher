@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "FalconLauncher"
 include(":app")
+include(":tiktok")
