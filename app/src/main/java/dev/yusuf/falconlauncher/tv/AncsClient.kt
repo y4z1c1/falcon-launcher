@@ -60,6 +60,8 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
     /** Call muting is on: keep the link alive (watchdog, Bluetooth restarts). */
     private var wanted = false
     private var connectingSince = 0L
+    /** An advertising request is out; reconnect to the iPhone once it has been answered. */
+    private var reconnectWhenAdvertised = false
 
     private val _state = MutableStateFlow(State.OFF)
     val state: StateFlow<State> = _state.asStateFlow()
@@ -89,9 +91,17 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
             server = runCatching { manager.openGattServer(context, serverCallback) }.getOrNull()
         }
         if (_state.value != State.ACTIVE && _state.value != State.CONNECTING) _state.value = State.WAITING
-        advertise()
-        // The iPhone we paired with before: reconnect to it directly.
-        reconnectPhone()
+        advertiseThenReconnect()
+    }
+
+    /**
+     * Advertises, then reconnects to the iPhone we paired with before. One after the other: this TV's
+     * Bluetooth stack aborts (and restarts Bluetooth) when a connection and an advertising command
+     * overlap. Seen twice on 2026-11-01: "Waiting for LE_EXTENDED_CREATE_CONNECTION, got
+     * LE_SET_EXTENDED_ADVERTISING_ENABLE".
+     */
+    private fun advertiseThenReconnect() {
+        if (advertising || !advertise()) reconnectPhone() else reconnectWhenAdvertised = true
     }
 
     fun stop(): Boolean = main.post {
@@ -104,9 +114,10 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
         _state.value = State.OFF
     }
 
-    private fun advertise() {
-        if (advertising) return
-        val advertiser = manager?.adapter?.bluetoothLeAdvertiser ?: return
+    /** Asks for advertising; true if the request went out (its callback then reports the result). */
+    private fun advertise(): Boolean {
+        if (advertising) return false
+        val advertiser = manager?.adapter?.bluetoothLeAdvertiser ?: return false
         val settings = AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
             .setConnectable(true)
@@ -115,20 +126,29 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
         // Soliciting the ANCS service is what makes the iPhone offer to share notifications with us.
         val data = AdvertiseData.Builder().addServiceSolicitationUuid(ParcelUuid(ANCS_SERVICE)).build()
         val scanResponse = AdvertiseData.Builder().setIncludeDeviceName(true).build()
-        runCatching { advertiser.startAdvertising(settings, data, scanResponse, advertiseCallback) }
+        return runCatching { advertiser.startAdvertising(settings, data, scanResponse, advertiseCallback) }
             .onFailure { Log.w(TAG, "Advertising failed", it) }
+            .isSuccess
     }
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
             advertising = true
             Log.d(TAG, "Advertising as an ANCS accessory")
+            reconnectIfWaiting()
         }
 
         override fun onStartFailure(errorCode: Int) {
             advertising = false
             Log.w(TAG, "Advertising failed: $errorCode")
+            reconnectIfWaiting()
         }
+    }
+
+    private fun reconnectIfWaiting() = main.post {
+        if (!reconnectWhenAdvertised) return@post
+        reconnectWhenAdvertised = false
+        if (wanted) reconnectPhone()
     }
 
     /** The iPhone connects to our advertisement; we then talk to its ANCS service over the same link. */
@@ -157,11 +177,10 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
             main.postDelayed(this, WATCHDOG_MS)
             val adapter = manager?.adapter
             if (!hasPermissions() || adapter == null || !adapter.isEnabled) return
-            if (!advertising) advertise()
             val g = gatt
             when {
-                _state.value == State.ACTIVE -> Unit
-                g == null -> reconnectPhone()
+                _state.value == State.ACTIVE -> if (!advertising) advertise()
+                g == null -> advertiseThenReconnect()
                 _state.value == State.CONNECTING && SystemClock.uptimeMillis() - connectingSince > STUCK_MS &&
                     g.device.address == prefs.getString(KEY_PHONE, null) && isConnected(g.device) -> {
                     // Connected but never got to receiving notifications: start the link over.
