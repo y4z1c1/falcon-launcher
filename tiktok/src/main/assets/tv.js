@@ -11,6 +11,8 @@
   // TikTok's player tests H.265 (HEVC) once, passes on this TV, and saves "HEVC works" for a week; real H.265
   // videos then stall after a few frames ("having trouble playing this video"). Saying the codec is missing
   // makes it stream H.264, which plays fine. This runs before TikTok's own scripts.
+  // The saved test result goes too. Answering the test in advance (either way) was tried: the first video
+  // then took about 10 s to start instead of 4.5, so the player keeps running its test.
   const HEVC = /hvc1|hev1|hevc|h\.?265/i;
   try {
     localStorage.removeItem('hevc_support_key_temporary');
@@ -251,8 +253,16 @@
     focus(s ? (s.start || s.items[0] || null) : null);
   };
 
-  const currentVideo = () => [...document.querySelectorAll('video')].find(v => visible(v) && !v.paused) ||
-    [...document.querySelectorAll('video')].find(visible);
+  /** Covers the middle of the screen: the video being watched, not the edge of the one before or after it. */
+  const centered = v => {
+    const r = v.getBoundingClientRect();
+    return r.width > 4 && r.top < innerHeight / 2 && r.bottom > innerHeight / 2;
+  };
+  const currentVideo = () => {
+    const videos = [...document.querySelectorAll('video')];
+    return videos.find(v => centered(v) && !v.paused) || videos.find(centered) ||
+      videos.find(v => visible(v) && !v.paused) || videos.find(visible);
+  };
 
   const playPause = () => {
     const v = currentVideo();
@@ -350,6 +360,12 @@
     if (!s.layer && mode === 'menu' && key === 'right') setMode('video');
   }, true);
 
+  /** Sound off by the viewer's choice: TikTok saves its volume button's state. */
+  const mutedByViewer = () => {
+    try { return JSON.parse(localStorage.getItem('webapp-video-mute') || '{}').muted === true; } catch (_) { return false; }
+  };
+  let mutedTicks = 0;
+
   // Pop-ups can appear on their own (sign-in nags, the cookie banner): put the ring on them. The ring also
   // follows its control while the page moves underneath.
   // The same timer moves the progress line.
@@ -362,14 +378,25 @@
 
     const watching = isWatching();
     document.documentElement.classList.toggle('falcon-watching', watching);
-    if (!watching || mode === 'side' || mode === 'bar') return;
+    if (!watching) return;
+    const v = currentVideo();
+    // The video on screen playing without sound for over a second, though the viewer hasn't muted: a
+    // switch's mute stuck to it, or TikTok lost track. Sound back on, quietly as above.
+    if (v && !v.paused && v.muted && !mutedByViewer()) {
+      if (++mutedTicks >= 5) {
+        mutedTicks = 0;
+        quiet.add(v);
+        v.muted = false;
+      }
+    } else mutedTicks = 0;
+
+    if (mode === 'side' || mode === 'bar') return;
     if (!progress) {
       progress = document.createElement('div');
       progress.id = 'falcon-progress';
       progress.appendChild(document.createElement('div'));
       document.documentElement.appendChild(progress);
     }
-    const v = currentVideo();
     const scale = v && v.duration ? (v.currentTime / v.duration).toFixed(3) : '0';
     if (progress.dataset.scale !== scale) {
       progress.dataset.scale = scale;
