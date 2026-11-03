@@ -37,6 +37,9 @@ class HomeWatcherService : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
     /** Set once a Home press has been held long enough to open the app switcher; its release is then ignored. */
     private var homeHeld = false
+    /** The stock launcher's home screen was the last window to come to the front. */
+    private var stockHomeInFront = false
+    private val redirectAgain = Runnable { if (stockHomeInFront && !bypass) openLauncher() }
     private val holdHome = Runnable {
         homeHeld = true
         openSwitcher()
@@ -126,7 +129,10 @@ class HomeWatcherService : AccessibilityService() {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
         val cls = event.className?.toString()
-        if (!pkg.startsWith("com.android.systemui")) foreground = pkg
+        if (!pkg.startsWith("com.android.systemui")) {
+            foreground = pkg
+            stockHomeInFront = pkg in STOCK_LAUNCHERS && cls in STOCK_HOME_ACTIVITIES
+        }
         if (pkg != packageName && pkg !in STOCK_LAUNCHERS) recordRecent(pkg)
         if (pkg !in STOCK_LAUNCHERS) {
             // Any real app (or our launcher) in front ends a deliberate visit to the stock launcher.
@@ -149,7 +155,13 @@ class HomeWatcherService : AccessibilityService() {
 
     private fun openLauncher() {
         val now = SystemClock.uptimeMillis()
-        if (now - lastRedirect < DEBOUNCE_MS) return
+        if (now - lastRedirect < DEBOUNCE_MS) {
+            // Google TV's home can announce itself several times while it opens. If it is still in front
+            // once the debounce is over, redirect again rather than leave it there.
+            main.removeCallbacks(redirectAgain)
+            main.postDelayed(redirectAgain, DEBOUNCE_MS - (now - lastRedirect) + 50)
+            return
+        }
         lastRedirect = now
         startActivity(
             Intent(this, MainActivity::class.java)
