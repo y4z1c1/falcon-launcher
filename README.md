@@ -16,6 +16,10 @@ WiZ smart lights on an isometric 3D floor plan of your home, and remote-control 
 - **Now Playing** in the style of macOS's widget: artwork with the app's badge, title, "Artist – Album",
   equalizer, transport controls and a live progress bar. Works with Spotify, YouTube and any app with a
   media session, and remembers the **last played** item when the app is closed.
+- **Indoor temperature and humidity** on the weather card, from a Xiaomi Bluetooth thermometer (e.g. the Mi
+  Temperature and Humidity Monitor 2, LYWSD03MMC). No pairing or setup: the first sensor nearby is found and
+  remembered. On Xiaomi's own firmware the TV connects for a moment every 10 minutes (only while the TV is on);
+  sensors with the pvvx/ATC custom firmware or BTHome are just listened to.
 - Glass cards, Inter for text and Anybody Wide for the clock.
 
 **Lights (WiZ)**

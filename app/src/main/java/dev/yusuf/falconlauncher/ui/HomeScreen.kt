@@ -71,6 +71,7 @@ fun HomeScreen(
     val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
     val mediaAccess by vm.mediaAccess.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
+    val indoorClimate by vm.indoorClimate.collectAsStateWithLifecycle()
     val bulbs by vm.bulbs.collectAsStateWithLifecycle()
     val weatherCity by vm.weatherCity.collectAsStateWithLifecycle()
     val bulbRooms by vm.bulbRooms.collectAsStateWithLifecycle()
@@ -197,6 +198,7 @@ fun HomeScreen(
                     )
                     WidgetColumn(
                         weather = weather,
+                        indoor = indoorClimate,
                         bulbs = bulbs,
                         rooms = bulbRooms,
                         onWeatherClick = { showCityDialog = true },

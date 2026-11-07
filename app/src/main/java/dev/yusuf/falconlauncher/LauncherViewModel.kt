@@ -39,6 +39,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private val lights = falconApp.lights
     val nowPlaying: StateFlow<NowPlaying?> = nowPlayingSource.state
     val weather: StateFlow<Weather?> = falconApp.weather.state
+    val indoorClimate: StateFlow<dev.yusuf.falconlauncher.widgets.IndoorClimate?> = falconApp.climate.climate
     val bulbs: StateFlow<List<WizBulb>> = lights.bulbs
     val bulbRooms: StateFlow<Map<String, String>> = prefs.bulbRooms.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     val bulbNames: StateFlow<Map<String, String>> = prefs.bulbNames.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
@@ -78,6 +79,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         if (falconApp.weather.state.value == null && weatherCity.value.isNotBlank()) {
             viewModelScope.launch { falconApp.weather.refresh(weatherCity.value) }
         }
+        falconApp.climate.refreshIfStale()
         val now = System.currentTimeMillis()
         if (now - lastLightScan > LIGHT_RESCAN_MS) {
             lastLightScan = now

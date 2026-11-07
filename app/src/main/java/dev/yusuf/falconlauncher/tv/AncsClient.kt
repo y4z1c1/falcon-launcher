@@ -101,14 +101,24 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
      * LE_SET_EXTENDED_ADVERTISING_ENABLE".
      */
     private fun advertiseThenReconnect() {
+        // The climate sensor is connecting: advertising now would hit the same crash. Try again shortly.
+        if (!advertising && BleTraffic.sensorConnecting) {
+            main.removeCallbacks(retryAdvertise)
+            main.postDelayed(retryAdvertise, 1_000)
+            return
+        }
         if (advertising || !advertise()) reconnectPhone() else reconnectWhenAdvertised = true
     }
+
+    private val retryAdvertise = Runnable { if (wanted) advertiseThenReconnect() }
 
     fun stop(): Boolean = main.post {
         wanted = false
         main.removeCallbacks(watchdog)
+        main.removeCallbacks(retryAdvertise)
         runCatching { manager?.adapter?.bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback) }
         advertising = false
+        BleTraffic.advertisePending = false
         gatt?.close()
         gatt = null
         _state.value = State.OFF
@@ -116,7 +126,7 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
 
     /** Asks for advertising; true if the request went out (its callback then reports the result). */
     private fun advertise(): Boolean {
-        if (advertising) return false
+        if (advertising || BleTraffic.sensorConnecting) return false
         val advertiser = manager?.adapter?.bluetoothLeAdvertiser ?: return false
         val settings = AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
@@ -126,20 +136,26 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
         // Soliciting the ANCS service is what makes the iPhone offer to share notifications with us.
         val data = AdvertiseData.Builder().addServiceSolicitationUuid(ParcelUuid(ANCS_SERVICE)).build()
         val scanResponse = AdvertiseData.Builder().setIncludeDeviceName(true).build()
+        BleTraffic.advertisePending = true
         return runCatching { advertiser.startAdvertising(settings, data, scanResponse, advertiseCallback) }
-            .onFailure { Log.w(TAG, "Advertising failed", it) }
+            .onFailure {
+                Log.w(TAG, "Advertising failed", it)
+                BleTraffic.advertisePending = false
+            }
             .isSuccess
     }
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
             advertising = true
+            BleTraffic.advertisePending = false
             Log.d(TAG, "Advertising as an ANCS accessory")
             reconnectIfWaiting()
         }
 
         override fun onStartFailure(errorCode: Int) {
             advertising = false
+            BleTraffic.advertisePending = false
             Log.w(TAG, "Advertising failed: $errorCode")
             reconnectIfWaiting()
         }
@@ -155,7 +171,7 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
     private val serverCallback = object : BluetoothGattServerCallback() {
         override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
             Log.d(TAG, "Peer ${device.address} state $newState")
-            if (newState != BluetoothProfile.STATE_CONNECTED || device.address in ignored) return
+            if (newState != BluetoothProfile.STATE_CONNECTED || device.address in ignored || device.address in BleTraffic.sensors) return
             main.post { if (gatt == null) connect(device, autoConnect = false) }
         }
     }
@@ -202,6 +218,7 @@ class AncsClient(private val context: Context, private val onEvent: (AncsEvent) 
             when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
                 BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> main.post {
                     advertising = false
+                    BleTraffic.advertisePending = false
                     gatt?.close()
                     gatt = null
                     server?.close()

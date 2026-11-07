@@ -58,4 +58,5 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.palette)
     implementation(libs.dadb)
+    testImplementation(libs.junit)
 }

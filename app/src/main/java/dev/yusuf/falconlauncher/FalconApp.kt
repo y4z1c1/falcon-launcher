@@ -61,6 +61,8 @@ class FalconApp : Application() {
     }
     /** Hears the iPhone ring over Bluetooth (ANCS) once paired. */
     val ancs by lazy { dev.yusuf.falconlauncher.tv.AncsClient(this) { incomingCalls.onEvent(it) } }
+    /** The room's Xiaomi thermometer, read over Bluetooth. */
+    val climate by lazy { dev.yusuf.falconlauncher.widgets.ClimateSensor(this) }
 
     // Kept warm so a remote number key can act instantly, from any app.
     private val savedShortcuts by lazy { prefs.lightShortcuts.stateIn(appScope, SharingStarted.Eagerly, emptyMap()) }
@@ -117,6 +119,7 @@ class FalconApp : Application() {
         callMuteEnabledState
         // Bluetooth ring detection runs while call muting is on (and once permissions are granted).
         appScope.launch { prefs.callMuteEnabled.collect { on -> if (on) ancs.start() else ancs.stop() } }
+        climate.start()
         dev.yusuf.falconlauncher.tv.MusicKeepAwake(this, localAdb, nowPlaying.state).start(appScope)
     }
 

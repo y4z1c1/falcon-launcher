@@ -28,10 +28,12 @@ class MainActivity : ComponentActivity() {
     private var serviceStatus by mutableStateOf(HomeWatcherService.Status.ON)
     private var wifiPermissionGranted by mutableStateOf(false)
 
-    /** Bluetooth access for hearing the iPhone ring (Settings › Call muting). */
+    /** Bluetooth access for hearing the iPhone ring (Settings › Call muting) and reading the thermometer. */
     private val bluetoothPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            (application as FalconApp).ancs.start()
+            val app = application as FalconApp
+            if (app.callMuteEnabled) app.ancs.start()
+            app.climate.start()
         }
 
     fun requestBluetoothPermissions() = bluetoothPermissions.launch(dev.yusuf.falconlauncher.tv.AncsClient.PERMISSIONS)
@@ -40,6 +42,7 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             wifiPermissionGranted = granted
             getPreferences(MODE_PRIVATE).edit { putBoolean(KEY_ASKED_LOCATION, true) }
+            askForBluetoothOnce()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,12 +86,21 @@ class MainActivity : ComponentActivity() {
 
     /** The Wi-Fi pill can only show the network name with location permission. Ask once, never nag. */
     private fun askForLocationOnce() {
-        if (wifiPermissionGranted) return
-        if (getPreferences(MODE_PRIVATE).getBoolean(KEY_ASKED_LOCATION, false)) return
+        if (wifiPermissionGranted) return askForBluetoothOnce()
+        if (getPreferences(MODE_PRIVATE).getBoolean(KEY_ASKED_LOCATION, false)) return askForBluetoothOnce()
         locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    /** The thermometer on the weather card needs Bluetooth. Asked once, after the location question. */
+    private fun askForBluetoothOnce() {
+        if ((application as FalconApp).climate.hasPermissions()) return
+        if (getPreferences(MODE_PRIVATE).getBoolean(KEY_ASKED_BLUETOOTH, false)) return
+        getPreferences(MODE_PRIVATE).edit { putBoolean(KEY_ASKED_BLUETOOTH, true) }
+        requestBluetoothPermissions()
     }
 
     private companion object {
         const val KEY_ASKED_LOCATION = "asked_location"
+        const val KEY_ASKED_BLUETOOTH = "asked_bluetooth"
     }
 }

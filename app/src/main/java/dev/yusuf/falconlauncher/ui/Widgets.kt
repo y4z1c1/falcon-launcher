@@ -33,6 +33,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import dev.yusuf.falconlauncher.R
+import dev.yusuf.falconlauncher.widgets.IndoorClimate
 import dev.yusuf.falconlauncher.widgets.NowPlaying
 import dev.yusuf.falconlauncher.widgets.Weather
 import dev.yusuf.falconlauncher.widgets.Room
@@ -44,6 +45,7 @@ private val WidgetHeight = 84.dp
 @Composable
 fun WidgetColumn(
     weather: Weather?,
+    indoor: IndoorClimate?,
     bulbs: List<WizBulb>,
     rooms: Map<String, String>,
     onWeatherClick: () -> Unit,
@@ -55,7 +57,7 @@ fun WidgetColumn(
     // Stacked to the right of Now Playing; together exactly as tall as it (2 × 84 + 16 = 184dp).
     Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = modifier) {
         WidgetCard(width = 312.dp, onClick = onWeatherClick) {
-            WeatherContent(weather)
+            WeatherContent(weather, indoor)
         }
         WidgetCard(width = 312.dp, onClick = onLightsClick, onMenu = onLightsMenu, modifier = lightsModifier) {
             LightsContent(bulbs, rooms)
@@ -102,15 +104,29 @@ private fun WidgetCard(
     }
 }
 
+/** Outside on the left; inside (the room's thermometer) on the right, once it has a recent reading. */
 @Composable
-internal fun WeatherContent(weather: Weather?) {
+internal fun RowScope.WeatherContent(weather: Weather?, indoor: IndoorClimate? = null) {
+    OutdoorWeather(weather, Modifier.weight(1f))
+    if (indoor != null && indoor.isFresh) {
+        Box(Modifier.width(1.dp).height(40.dp).background(Color.White.copy(alpha = 0.15f)))
+        IndoorClimateContent(indoor)
+    }
+}
+
+@Composable
+private fun OutdoorWeather(weather: Weather?, modifier: Modifier) = Row(
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(12.dp),
+    modifier = modifier,
+) {
     if (weather == null) {
         Text("🌡️", fontSize = 30.sp)
         Column {
             Text("Weather", fontSize = 15.sp, fontWeight = FontWeight.Medium)
             Text("Loading…", fontSize = 12.sp, color = Color.White.copy(alpha = 0.7f))
         }
-        return
+        return@Row
     }
     val (description, emoji) = weather.summary
     Text(emoji, fontSize = 32.sp)
@@ -133,6 +149,29 @@ internal fun WeatherContent(weather: Weather?) {
         )
     }
 }
+
+@Composable
+private fun IndoorClimateContent(indoor: IndoorClimate) {
+    val dim = Color.White.copy(alpha = 0.7f)
+    Column(horizontalAlignment = Alignment.End) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.ic_home), contentDescription = "Inside", tint = dim, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("%.1f°".format(indoor.temperature), fontSize = 20.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.ic_water_drop), contentDescription = "Humidity", tint = dim, modifier = Modifier.size(11.dp))
+            Spacer(Modifier.width(3.dp))
+            Text("${indoor.humidity}%", fontSize = 12.sp, color = dim, maxLines = 1)
+            // A coin cell nearly empty: the readings will soon stop.
+            if (indoor.battery != null && indoor.battery < LOW_BATTERY) {
+                Text(" · 🪫", fontSize = 12.sp, color = dim)
+            }
+        }
+    }
+}
+
+private const val LOW_BATTERY = 15
 
 @Composable
 private fun LightsContent(bulbs: List<WizBulb>, rooms: Map<String, String>) {
