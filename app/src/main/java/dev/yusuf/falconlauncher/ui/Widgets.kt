@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -108,7 +109,7 @@ private fun WidgetCard(
 @Composable
 internal fun RowScope.WeatherContent(weather: Weather?, indoor: IndoorClimate? = null) {
     OutdoorWeather(weather, Modifier.weight(1f))
-    if (indoor != null && indoor.isFresh) {
+    if (indoor != null && indoor.isShown) {
         Box(Modifier.width(1.dp).height(40.dp).background(Color.White.copy(alpha = 0.15f)))
         IndoorClimateContent(indoor)
     }
@@ -152,22 +153,28 @@ private fun OutdoorWeather(weather: Weather?, modifier: Modifier) = Row(
 
 @Composable
 private fun IndoorClimateContent(indoor: IndoorClimate) {
-    val dim = Color.White.copy(alpha = 0.7f)
-    Column(horizontalAlignment = Alignment.End) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(painterResource(R.drawable.ic_home), contentDescription = "Inside", tint = dim, modifier = Modifier.size(14.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("%.1f°".format(indoor.temperature), fontSize = 20.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(painterResource(R.drawable.ic_water_drop), contentDescription = "Humidity", tint = dim, modifier = Modifier.size(11.dp))
-            Spacer(Modifier.width(3.dp))
-            Text("${indoor.humidity}%", fontSize = 12.sp, color = dim, maxLines = 1)
+    // An old reading (e.g. right after standby) stays up, dimmed, until a new one comes in.
+    val alpha = if (indoor.isFresh) 1f else 0.5f
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.alpha(alpha)) {
+        ClimateRow(R.drawable.ic_thermometer, "Indoor temperature", "%.1f°".format(indoor.temperature))
+        ClimateRow(
+            R.drawable.ic_water_drop,
+            "Indoor humidity",
             // A coin cell nearly empty: the readings will soon stop.
-            if (indoor.battery != null && indoor.battery < LOW_BATTERY) {
-                Text(" · 🪫", fontSize = 12.sp, color = dim)
-            }
+            "${indoor.humidity}%" + if (indoor.battery != null && indoor.battery < LOW_BATTERY) " 🪫" else "",
+        )
+    }
+}
+
+/** One line of the indoor reading: icons in one column, values starting at the same edge, same size. */
+@Composable
+private fun ClimateRow(icon: Int, description: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
+            Icon(painterResource(icon), contentDescription = description, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
         }
+        Spacer(Modifier.width(6.dp))
+        Text(value, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
 

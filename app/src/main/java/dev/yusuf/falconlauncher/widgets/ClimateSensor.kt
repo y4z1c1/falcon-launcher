@@ -13,13 +13,17 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
@@ -38,7 +42,13 @@ data class IndoorClimate(
     /** When it was read (System.currentTimeMillis). */
     val at: Long,
 ) {
-    val isFresh: Boolean get() = System.currentTimeMillis() - at < ClimateSensor.STALE_MS
+    private val age: Long get() = System.currentTimeMillis() - at
+
+    /** Recent enough to show at all (the room changes slowly; after a night in standby it's still a fair guess). */
+    val isShown: Boolean get() = age < ClimateSensor.HIDE_MS
+
+    /** Read in the last hour; older readings are shown dimmed until a new one comes in. */
+    val isFresh: Boolean get() = age < ClimateSensor.FRESH_MS
 }
 
 /**
@@ -66,6 +76,7 @@ class ClimateSensor(private val context: Context) {
     private var running = false
     /** A scan or connection is under way; the next cycle is scheduled when it ends. */
     private var busy = false
+    private var busySince = 0L
     private var scanning = false
     private var gatt: BluetoothGatt? = null
     private var connectFailures = 0
@@ -80,14 +91,53 @@ class ClimateSensor(private val context: Context) {
 
     /** Starts reading. Safe to call again, e.g. once Bluetooth permission is granted. */
     fun start(): Boolean = main.post {
+        if (!running) {
+            ContextCompat.registerReceiver(context, screenOn, IntentFilter(Intent.ACTION_SCREEN_ON), ContextCompat.RECEIVER_EXPORTED)
+            main.postDelayed(watchdog, WATCHDOG_MS)
+        }
         running = true
         if (!busy) cycle.run()
+    }
+
+    /** The TV came out of standby: read right away (after a moment for Bluetooth to settle). */
+    private val screenOn = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, intent: Intent) {
+            Log.d(TAG, "Screen on")
+            main.postDelayed({ refreshIfStale() }, 3_000)
+        }
+    }
+
+    /**
+     * Every [WATCHDOG_MS]: a round that never finished (a Bluetooth callback that never came) is ended,
+     * and a round that is overdue is started, so readings never stop for good.
+     */
+    private val watchdog = object : Runnable {
+        override fun run() {
+            main.postDelayed(this, WATCHDOG_MS)
+            if (!running) return
+            val now = SystemClock.uptimeMillis()
+            if (busy && now - busySince > STUCK_MS) {
+                Log.w(TAG, "Round stuck (scanning=$scanning, gatt=${gatt != null}, connecting=${BleTraffic.sensorConnecting}, advertising=${BleTraffic.advertisePending}); starting over")
+                stopScan()
+                main.removeCallbacks(connectTimeout)
+                BleTraffic.sensorConnecting = false
+                gatt?.let { runCatching { it.disconnect() }; it.close() }
+                gatt = null
+                next(0)
+            } else if (!busy && !main.hasCallbacks(cycle)) {
+                Log.w(TAG, "No round scheduled; starting one")
+                cycle.run()
+            }
+        }
     }
 
     /** Reads now if the last reading is getting old, e.g. when the home screen opens after standby. */
     fun refreshIfStale(): Boolean = main.post {
         val last = _climate.value
-        if (running && !busy && (last == null || System.currentTimeMillis() - last.at > REFRESH_ON_OPEN_MS)) cycle.run()
+        if (running && !busy && (last == null || System.currentTimeMillis() - last.at > REFRESH_ON_OPEN_MS)) {
+            Log.d(TAG, "Reading now (last one is old)")
+            cycle.run()
+        }
     }
 
     private val cycle = Runnable {
@@ -98,8 +148,12 @@ class ClimateSensor(private val context: Context) {
             return@Runnable // start() runs again once permission is granted
         }
         val adapter = manager?.adapter
-        if (adapter == null || !adapter.isEnabled || !power.isInteractive) return@Runnable next(RETRY_MS)
+        if (adapter == null || !adapter.isEnabled || !power.isInteractive) {
+            Log.d(TAG, "Not now (bluetooth=${adapter?.isEnabled}, screen on=${power.isInteractive})")
+            return@Runnable next(RETRY_MS)
+        }
         busy = true
+        busySince = SystemClock.uptimeMillis()
         val address = prefs.getString(KEY_ADDRESS, null)
         if (address != null && prefs.getBoolean(KEY_CONNECT, false) && connectFailures < MAX_CONNECT_FAILURES) {
             connect(address)
@@ -112,7 +166,8 @@ class ClimateSensor(private val context: Context) {
     private fun next(delayMs: Long) {
         busy = false
         main.removeCallbacksAndMessages(CYCLE)
-        if (running) main.postAtTime(cycle, CYCLE, android.os.SystemClock.uptimeMillis() + delayMs)
+        if (running) main.postAtTime(cycle, CYCLE, SystemClock.uptimeMillis() + delayMs)
+        Log.d(TAG, "Next round in ${delayMs / 1000}s")
     }
 
     // --- Listening for broadcasts ---
@@ -127,6 +182,7 @@ class ClimateSensor(private val context: Context) {
             .onFailure { Log.w(TAG, "Scan failed", it) }
             .isSuccess
         if (!started) return next(RETRY_MS)
+        Log.d(TAG, "Scanning")
         scanning = true
         partial.clear()
         if (_climate.value?.isFresh != true && _status.value != Status.UNSUPPORTED) _status.value = Status.SEARCHING
@@ -196,11 +252,13 @@ class ClimateSensor(private val context: Context) {
     private fun connect(address: String) {
         // Never while call muting's advertising request is out: the TV's Bluetooth would crash.
         if (BleTraffic.advertisePending) {
+            Log.d(TAG, "Waiting for call muting's advertising")
             main.postDelayed({ if (running && gatt == null) connect(address) }, 1_000)
             return
         }
         val device = runCatching { manager?.adapter?.getRemoteDevice(address) }.getOrNull()
             ?: return finishConnection(ok = false)
+        Log.d(TAG, "Connecting to $address (misses so far: $connectFailures)")
         if (_climate.value?.isFresh != true) _status.value = Status.CONNECTING
         BleTraffic.sensors += address
         BleTraffic.sensorConnecting = true
@@ -241,6 +299,7 @@ class ClimateSensor(private val context: Context) {
                 if (gatt !== g) return@post
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
+                        Log.d(TAG, "Connected; looking for its values")
                         BleTraffic.sensorConnecting = false
                         g.discoverServices()
                     }
@@ -267,6 +326,7 @@ class ClimateSensor(private val context: Context) {
                 }
                 return
             }
+            Log.d(TAG, "Subscribing")
             g.setCharacteristicNotification(data, true)
             val cccd = data.getDescriptor(CCCD) ?: return
             val enable = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
@@ -278,6 +338,23 @@ class ClimateSensor(private val context: Context) {
                 @Suppress("DEPRECATION")
                 g.writeDescriptor(cccd)
             }
+        }
+
+        /** Subscribed: also ask for the value once, so there's no wait for the sensor's next notification. */
+        override fun onDescriptorWrite(g: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+            Log.d(TAG, "Subscribed ($status)")
+            val data = descriptor.characteristic ?: return
+            main.post { if (gatt === g) runCatching { g.readCharacteristic(data) } }
+        }
+
+        override fun onCharacteristicRead(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) {
+            if (status == BluetoothGatt.GATT_SUCCESS) onReading(g, characteristic, value)
+        }
+
+        @Deprecated("Pre-Android 13 callback")
+        override fun onCharacteristicRead(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+            @Suppress("DEPRECATION")
+            if (status == BluetoothGatt.GATT_SUCCESS) onReading(g, characteristic, characteristic.value ?: ByteArray(0))
         }
 
         override fun onCharacteristicChanged(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) =
@@ -352,15 +429,18 @@ class ClimateSensor(private val context: Context) {
         private const val KEY_AT = "at"
 
         private const val SCAN_MS = 20_000L
-        private const val CONNECT_TIMEOUT_MS = 25_000L
+        private const val CONNECT_TIMEOUT_MS = 45_000L
+        private const val WATCHDOG_MS = 60_000L
+        /** Longer than any round can take (scan, or wait for advertising plus connect timeout). */
+        private const val STUCK_MS = 90_000L
         private const val MAX_CONNECT_FAILURES = 3
         private const val RETRY_MS = 60_000L
         private const val ADVERT_INTERVAL_MS = 2 * 60_000L
         private const val GATT_INTERVAL_MS = 10 * 60_000L
         private const val SEARCH_INTERVAL_MS = 3 * 60_000L
         private const val REFRESH_ON_OPEN_MS = 5 * 60_000L
-        /** Older readings aren't shown. */
-        const val STALE_MS = 60 * 60_000L
+        const val FRESH_MS = 60 * 60_000L
+        const val HIDE_MS = 12 * 60 * 60_000L
 
         // Xiaomi's temperature and humidity service and its notify characteristic.
         private val SERVICE: UUID = UUID.fromString("ebe0ccb0-7a0a-4b0c-8a1a-6ff2997da3a6")
