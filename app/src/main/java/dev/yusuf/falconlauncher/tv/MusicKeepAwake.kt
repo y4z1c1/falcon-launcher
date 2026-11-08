@@ -3,6 +3,8 @@ package dev.yusuf.falconlauncher.tv
 import android.content.Context
 import android.os.PowerManager
 import android.os.SystemClock
+import android.provider.Settings
+import android.util.Log
 import dev.yusuf.falconlauncher.widgets.NowPlaying
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -13,15 +15,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
- * Keeps the TV from putting itself on standby while music plays. Android TV's "attentive timeout" (TCL's
- * "TV has been inactive for a long time" countdown, after 4 hours) only counts remote presses: wake locks
- * don't hold it off, so an evening of Spotify ends in standby. While a music app plays and the screen is
- * on, this sends the TV an inert key now and then through [LocalAdb]. Injected input counts as user
- * activity, which restarts the countdown.
+ * Keeps the screensaver and standby away while music plays. Both start after a stretch without remote
+ * presses: the screensaver after the screen timeout (10 minutes here), and standby after Android TV's
+ * "attentive timeout" (TCL's "TV has been inactive for a long time" countdown, after 4 hours), which wake
+ * locks don't hold off. While a music app plays and the screen is on, this sends the TV an inert key through
+ * [LocalAdb] a minute before the screensaver would start. Injected input counts as user activity, which
+ * restarts both countdowns.
  *
- * Video apps are left alone, so falling asleep in front of a film still ends in standby.
+ * Video apps are left alone, so falling asleep in front of a film still ends in the screensaver and standby.
  */
 class MusicKeepAwake(
     context: Context,
@@ -29,6 +33,7 @@ class MusicKeepAwake(
     private val nowPlaying: StateFlow<NowPlaying?>,
 ) {
     private val power = context.getSystemService(PowerManager::class.java)
+    private val resolver = context.contentResolver
     private var lastPoke = 0L
 
     fun start(scope: CoroutineScope) {
@@ -40,8 +45,11 @@ class MusicKeepAwake(
                     // Poke right away too: music started from a phone (Spotify Connect) may begin late in the countdown.
                     while (playing) {
                         val now = SystemClock.elapsedRealtime()
-                        if (power.isInteractive && now - lastPoke >= POKE_EVERY.inWholeMilliseconds) {
-                            if (adb.pokeUserActivity()) lastPoke = now
+                        if (power.isInteractive && now - lastPoke >= pokeEvery()) {
+                            if (adb.pokeUserActivity()) {
+                                lastPoke = now
+                                Log.d(TAG, "Music playing: held off the screensaver and standby")
+                            }
                         }
                         delay(CHECK_EVERY)
                     }
@@ -49,10 +57,20 @@ class MusicKeepAwake(
         }
     }
 
+    /** A minute before the screensaver would start (read each time, in case it's changed in Settings). */
+    private fun pokeEvery(): Long {
+        val screenTimeout = runCatching { Settings.System.getLong(resolver, Settings.System.SCREEN_OFF_TIMEOUT) }
+            .getOrDefault(10.minutes.inWholeMilliseconds)
+        return (screenTimeout - 1.minutes.inWholeMilliseconds)
+            .coerceIn(MIN_POKE_EVERY.inWholeMilliseconds, MAX_POKE_EVERY.inWholeMilliseconds)
+    }
+
     private companion object {
-        /** Well inside the 4-hour countdown, and rare enough not to hold off the screensaver for long. */
-        val POKE_EVERY = 1.hours
-        val CHECK_EVERY = 5.minutes
+        const val TAG = "MusicKeepAwake"
+        val MIN_POKE_EVERY = 30.seconds
+        /** Well inside the 4-hour standby countdown, even with a long (or no) screensaver timeout. */
+        val MAX_POKE_EVERY = 1.hours
+        val CHECK_EVERY = 15.seconds
 
         val MUSIC_APPS = setOf(
             "com.spotify.tv.android",
