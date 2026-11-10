@@ -84,6 +84,11 @@ class Prefs(context: Context) {
                 prefs[FAVORITES] = (current + DOCK_ADDITIONS.filter { it !in current }).joinToString(",")
                 prefs[DOCK_ADDITIONS_APPLIED] = true
             }
+            // The TikTok app moved to its own repo as OpenTikTok, under a new package: it keeps its dock spot.
+            val favorites = prefs[FAVORITES]?.split(',').orEmpty()
+            if (OLD_TIKTOK in favorites) {
+                prefs[FAVORITES] = favorites.map { if (it == OLD_TIKTOK) OPEN_TIKTOK else it }.distinct().joinToString(",")
+            }
         }
     }
 
@@ -125,9 +130,12 @@ class Prefs(context: Context) {
         )
         val DOCK_ADDITIONS_APPLIED = booleanPreferencesKey("dock_additions_v1")
         val DOCK_ADDITIONS = listOf(
-            "dev.yusuf.falcontok", // TikTok (this repo's tiktok module)
+            OPEN_TIKTOK,
             "com.wbd.stream", // HBO Max
         )
+        /** OpenTikTok (github.com/y4z1c1/opentiktok), once this repo's tiktok module under the old package. */
+        const val OPEN_TIKTOK = "dev.yusuf.opentiktok"
+        const val OLD_TIKTOK = "dev.yusuf.falcontok"
         val BULB_ROOMS = stringSetPreferencesKey("bulb_rooms")
         val BULB_NAMES = stringSetPreferencesKey("bulb_names")
         val BULB_POSITIONS = stringSetPreferencesKey("bulb_positions")
